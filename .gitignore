@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs and test artefacts
+*.log
+downloads_test/_e2e_*.log
+downloads_test/_probe_runtime/
+downloads_test/screenshots/
+downloads_test/scholar_papers/
+downloads_test/downloads/
+downloads_test/agent_chrome_profile/
+
+# Chrome profile (browser data, cookies, cache)
+.agent_chrome_profile/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Third-party source tree (installed via pip / editable install)
+browser-harness/
+
+# Node / MCP artefacts
+node_modules/
+.mcp_config*
+package-lock.json
+
+# OS / temp
+tmp/
+temp/
+.cache/
