@@ -25,6 +25,7 @@ from typing import Any, Optional
 from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import Runnable
 
+from agents._error_diagnosis import diagnose, short_label
 from agents.task_planner import Step
 from tools._logging import log_event
 
@@ -92,8 +93,11 @@ class Subagent(ABC):
             }
         except Exception as exc:
             elapsed = int((time.monotonic() - start) * 1000)
+            diag = diagnose(str(exc))
             logging.getLogger("agent.supervisor.error").info(
-                "STEP %d ERR: %s", step.step_id, exc
+                "STEP %d ERR [%s/%s] conf=%.2f: %s",
+                step.step_id, diag.category, short_label(diag.category),
+                diag.confidence, exc,
             )
             return {
                 "subagent": self.name,
@@ -102,6 +106,15 @@ class Subagent(ABC):
                 "elapsed_ms": elapsed,
                 "error": str(exc),
                 "data": None,
+                # NEW: structured diagnosis so the ReAct Master can
+                # decide what to do next (retry, switch assignee, ask
+                # the user, etc.) without re-parsing the raw exception.
+                "error_category": diag.category,
+                "error_short": diag.short,
+                "error_detail": diag.detail,
+                "error_recovery_hint": diag.recovery_hint,
+                "error_can_retry": diag.can_retry,
+                "error_confidence": diag.confidence,
             }
 
     # -- helpers ---------------------------------------------------------
@@ -137,4 +150,39 @@ def default_system_prompt(subagent_description: str) -> str:
     )
 
 
-__all__ = ["Subagent", "default_system_prompt"]
+def extract_latest_tool_result(response: Any) -> Any:
+    """Pull the most recent :class:`ToolMessage` payload from a ReAct response.
+
+    ReAct agents return a dict like ``{"messages": [...]}`` where the
+    final message is typically an ``AIMessage`` containing a summary
+    of the agent's reasoning. The *structured* output we actually
+    want is the JSON payload of the last ``ToolMessage``.
+
+    Returns the parsed dict when the tool's content is JSON, the dict
+    form when LangChain already parsed it, or the raw response as a
+    last resort.
+    """
+    import json
+    try:
+        messages = response.get("messages", []) or []
+    except AttributeError:
+        return response
+
+    for msg in reversed(messages):
+        cls_name = type(msg).__name__
+        if cls_name != "ToolMessage":
+            continue
+        content = getattr(msg, "content", None) or (
+            msg.get("content") if isinstance(msg, dict) else None
+        )
+        if isinstance(content, dict):
+            return content
+        if isinstance(content, str):
+            try:
+                return json.loads(content)
+            except Exception:
+                continue
+    return response
+
+
+__all__ = ["Subagent", "default_system_prompt", "extract_latest_tool_result"]

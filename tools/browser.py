@@ -787,12 +787,27 @@ def browser_run_js(expression: str, target_id: str = "") -> object:
     Args:
         expression: JavaScript expression or snippet to evaluate.
         target_id: Optional iframe target ID. Leave empty to run in the
-            current top-level page.
+            current top-level page. **Must be a string** — non-string
+            values trigger a clear error so the LLM does not silently
+            pass a dict/number that Chrome DevTools Protocol rejects.
 
     Returns:
         The raw deserialized JavaScript result.
     """
     setup_browser()
+    # Validate target_id: Chrome DevTools Protocol will return
+    # "Invalid parameters" if we hand it anything other than a string
+    # (or None).  LLM-generated callables occasionally pass dicts or
+    # numbers that *look* like IDs; we want a clean TypeError that the
+    # multi-agent error classifier can map to cdp-bad-params.
+    if target_id is not None and not isinstance(target_id, str):
+        raise TypeError(
+            f"browser_run_js: target_id must be a string or None, "
+            f"got {type(target_id).__name__}={target_id!r}. "
+            f"Either pass a real iframe targetId (a string from "
+            f"Page.getFrameTree) or leave it empty to run in the "
+            f"current top-level page."
+        )
     return _bh.js(expression, target_id=target_id or None)
 
 
@@ -891,6 +906,219 @@ def browser_http_get(
     return _bh.http_get(url, headers=headers, timeout=timeout)
 
 
+@describe(
+    purpose=(
+        "Find a link on the current page by text or URL pattern and "
+        "navigate to it — *without* requiring pixel-accurate clicking. "
+        "Useful for hot search / nav bars / result lists where the LLM "
+        "can read the link text in a screenshot but cannot estimate "
+        "exact coordinates."
+    ),
+    when_to_use=(
+        "Default choice when the page shows a list of links, the user "
+        "asks to open a particular one, and you don't need the click "
+        "to trigger custom JavaScript. Also great for back-and-forth "
+        "workflows: open the target link in a NEW tab, read the result, "
+        "close that tab, repeat."
+    ),
+    caveats=(
+        "Only matches the FIRST link whose text or href contains the "
+        "given substring (case-insensitive). For lists, pass the topic "
+        "title visible in the screenshot. If the page uses JS-only "
+        "navigation (no href), fall back to browser_click_xy."
+    ),
+)
+@tool
+def browser_navigate_to_link(
+    text_or_href_match: str,
+    open_new_tab: bool = False,
+    wait_for_load: bool = True,
+    timeout: float = 8.0,
+) -> dict:
+    """Find a link whose text or href contains the substring and navigate to it.
+
+    Args:
+        text_or_href_match: Case-insensitive substring to look for in
+            the link's visible text or href. Empty string means "first
+            link on the page".
+        open_new_tab: If True, open the link in a fresh tab and attach
+            the session to it; otherwise navigate the current tab.
+        wait_for_load: Wait for the new page to fully load before returning.
+        timeout: Seconds to wait for load.
+
+    Returns:
+        Dict with the matched link's {text, href, index} and the page
+        the browser is now on. If no match, returns ``{ok: false,
+        error: "no link matches ..."}``.
+    """
+    setup_browser()
+    page_info = _bh.page_info() or {}
+    url = page_info.get("url", "")
+    base = _bh.domain_root(url) if hasattr(_bh, "domain_root") else None
+    # Extract every <a> on the page; use a small inline JS expression
+    # so we don't need a new tool just for the query.
+    js = r"""
+    (() => {
+        const out = [];
+        document.querySelectorAll('a[href]').forEach((a, i) => {
+            const rect = a.getBoundingClientRect();
+            const text = (a.innerText || a.textContent || '').trim();
+            const href = a.getAttribute('href') || '';
+            if (!href || href === '#') return;
+            if (rect.width === 0 && rect.height === 0) return;
+            out.push({i, text: text.slice(0, 200), href, x: rect.left + rect.width/2, y: rect.top + rect.height/2});
+        });
+        return out;
+    })()
+    """
+    raw = _bh.js(js)
+    if isinstance(raw, dict) and "result" in raw:
+        links = raw.get("result") or []
+    else:
+        links = raw if isinstance(raw, list) else []
+    if not links:
+        return {"ok": False, "error": "no anchor tags on this page", "matched": None, "total_links": 0}
+
+    needle = (text_or_href_match or "").strip().lower()
+    matched = None
+    if needle:
+        for li in links:
+            if needle in (li.get("text", "").lower()) or needle in (li.get("href", "").lower()):
+                matched = li
+                break
+    else:
+        matched = links[0]
+    if not matched:
+        return {
+            "ok": False,
+            "error": f"no link matches {text_or_href_match!r}",
+            "matched": None,
+            "total_links": len(links),
+            "first_few": links[:5],
+        }
+
+    href = matched.get("href", "")
+    # Resolve relative URLs against the current page URL.
+    target_url = href
+    if href.startswith("/") and url:
+        from urllib.parse import urlparse, urljoin
+        target_url = urljoin(url, href)
+    elif not href.startswith(("http://", "https://", "about:", "data:")) and url:
+        from urllib.parse import urljoin
+        target_url = urljoin(url, href)
+
+    if open_new_tab:
+        _bh.new_tab(target_url)
+        if wait_for_load:
+            _bh.wait_for_load(timeout=timeout)
+    else:
+        _bh.goto_url(target_url)
+        if wait_for_load:
+            _bh.wait_for_load(timeout=timeout)
+
+    return {
+        "ok": True,
+        "matched": {
+            "text": matched.get("text"),
+            "href": href,
+            "index": matched.get("i"),
+            "target_url": target_url,
+        },
+        "total_links": len(links),
+        "now_on": _bh.page_info(),
+    }
+
+
+@describe(
+    purpose=(
+        "Return every <a href> link visible on the current page, with "
+        "their visible text and absolute target URL.  Use this when the "
+        "agent can read the link text in a screenshot but cannot guess "
+        "the exact click coordinates — it can pick a link by text and "
+        "then call browser_navigate_to_link (or browser_navigate) with "
+        "the resolved URL."
+    ),
+    when_to_use=(
+        "When the page shows a list of items (hot search / nav bar / "
+        "search results / product list) and the agent needs to inspect "
+        "the full link table before deciding where to go."
+    ),
+    caveats=(
+        "Only returns links with a non-empty href and a non-zero size. "
+        "If the list is huge, pass a ``text_filter`` substring to "
+        "narrow it down.  ``limit`` caps the response size. Links whose "
+        "href is just ``#`` or starts with the JS pseudo-protocol are "
+        "dropped unless ``include_hash`` is True."
+    ),
+)
+@tool
+def browser_extract_links(
+    text_filter: str = "",
+    limit: int = 50,
+    include_hash: bool = False,
+) -> dict:
+    """Return the list of visible links on the current page.
+
+    Args:
+        text_filter: Optional case-insensitive substring. Only links
+            whose text OR href contains it are returned.
+        limit: Maximum number of links to return (default 50).
+        include_hash: If False, drop links whose href is just ``#`` or
+            uses a non-navigating pseudo-protocol.
+
+    Returns:
+        Dict ``{ok, count, links: [{text, href, target_url}], ...}``.
+    """
+    setup_browser()
+    page_info = _bh.page_info() or {}
+    url = page_info.get("url", "")
+    js = r"""
+    (() => {
+        const out = [];
+        document.querySelectorAll('a[href]').forEach((a, i) => {
+            const rect = a.getBoundingClientRect();
+            const text = (a.innerText || a.textContent || '').trim();
+            const href = a.getAttribute('href') || '';
+            if (!href) return;
+            if (rect.width === 0 && rect.height === 0) return;
+            out.push({i, text: text.slice(0, 240), href});
+        });
+        return out;
+    })()
+    """
+    raw = _bh.js(js)
+    if isinstance(raw, dict) and "result" in raw:
+        links = raw.get("result") or []
+    else:
+        links = raw if isinstance(raw, list) else []
+
+    from urllib.parse import urljoin
+    needle = (text_filter or "").strip().lower()
+    out: list[dict] = []
+    for li in links:
+        href = li.get("href", "")
+        text = li.get("text", "")
+        if not include_hash and (href in ("#", "") or href.startswith("javascript:")):
+            continue
+        if needle and needle not in (text or "").lower() and needle not in (href or "").lower():
+            continue
+        target_url = href
+        if href.startswith("/"):
+            target_url = urljoin(url, href)
+        elif not href.startswith(("http://", "https://", "about:", "data:", "mailto:")) and url:
+            target_url = urljoin(url, href)
+        out.append({
+            "index": li.get("i"),
+            "text": text,
+            "href": href,
+            "target_url": target_url,
+        })
+        if len(out) >= limit:
+            break
+
+    return {"ok": True, "count": len(out), "current_url": url, "links": out}
+
+
 # ---------------------------------------------------------------------------
 # public list
 # ---------------------------------------------------------------------------
@@ -898,6 +1126,7 @@ def browser_http_get(
 BROWSER_TOOLS = [
     # navigation
     browser_navigate,
+    browser_navigate_to_link,
     browser_new_tab,
     browser_list_tabs,
     browser_switch_tab,
@@ -912,9 +1141,12 @@ BROWSER_TOOLS = [
     browser_scroll,
     browser_dispatch_key,
     browser_upload_file,
+    browser_dismiss_overlay,
+    browser_handle_dialog,
     # observation
     browser_screenshot,
     browser_get_page_info,
+    browser_extract_links,
     browser_run_js,
     # wait
     browser_wait_for_load,

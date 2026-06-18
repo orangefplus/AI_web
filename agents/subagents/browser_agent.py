@@ -30,11 +30,9 @@ from langchain_core.runnables import Runnable
 from agents.subagents.base import Subagent, default_system_prompt
 from agents.prompts import (
     BASE_RULES,
-    INPUT_RULES,
-    OBSERVATION_RULES,
-    REPORTING_RULES,
-    TAB_RULES,
-    WAIT_RULES,
+    CLICK_SPECIALIST_PROMPT,
+    OBSERVE_SPECIALIST_PROMPT,
+    TAB_SPECIALIST_PROMPT,
     build_system_prompt,
 )
 from tools import get_browser_tools
@@ -109,21 +107,64 @@ class BrowserAgent(Subagent):
         }
 
     def _extract_data(self, response: Any) -> Any:
+        """Lift structured tool outputs out of the ReAct message history.
+
+        The ReAct agent runs the LLM in a loop and accumulates
+        ``HumanMessage / AIMessage / ToolMessage`` records. The
+        final ``AIMessage`` is usually plain text (because the LLM is
+        not a perfect JSON-emitting function) and the *real* data
+        lives in the ``ToolMessage`` content blobs:
+        ``{"screenshot_path": "...", "page_text": "...", ...}``.
+
+        Without this scan, the supervisor only sees the LLM's last
+        sentence and the verifier reports "page_text length 0" even
+        though the tool actually returned 4000 characters.
+        """
         try:
             messages = response.get("messages", [])
         except AttributeError:
             messages = []
-        for msg in reversed(messages):
-            content = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else None)
+
+        merged: dict = {}
+        last_text: str = ""
+
+        for msg in messages:
+            cls_name = type(msg).__name__
+            content = getattr(msg, "content", None)
             if not content:
                 continue
-            if isinstance(content, str):
+            if cls_name == "ToolMessage" and isinstance(content, str):
+                # Browser tools return a JSON string with a few
+                # well-known fields. Merge the first parseable JSON
+                # into the accumulator; non-JSON outputs are kept
+                # under a "raw_tool_text" key for debugging.
                 try:
-                    return json.loads(content)
+                    parsed = json.loads(content)
                 except json.JSONDecodeError:
-                    return {"text": content}
-            if isinstance(content, dict):
-                return content
+                    merged.setdefault("raw_tool_text", content)
+                    continue
+                if isinstance(parsed, dict):
+                    for k, v in parsed.items():
+                        if v not in (None, "", [], {}) and k not in merged:
+                            merged[k] = v
+                else:
+                    merged.setdefault("raw_tool_text", str(parsed))
+            elif isinstance(content, str):
+                last_text = content
+
+        # If the LLM's final message was JSON, layer it on top of the
+        # tool outputs (without overwriting real values).
+        if last_text:
+            try:
+                parsed_final = json.loads(last_text)
+                if isinstance(parsed_final, dict):
+                    for k, v in parsed_final.items():
+                        merged.setdefault(k, v)
+            except json.JSONDecodeError:
+                merged.setdefault("text", last_text)
+
+        if merged:
+            return merged
         return response
 
 

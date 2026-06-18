@@ -1,13 +1,6 @@
-"""VerifierAgent: cheap, deterministic check on the previous step.
+"""VerifyAgent (Verify 智能体) — Layer-4 specialist for result verification.
 
-The verifier typically *does not* need an LLM — its job is to assert
-that the previous sub-agent's output contains the expected keys /
-file sizes / download paths. We provide a small LLM-backed agent
-for soft checks ("does this summary answer the question?") and a
-:func:`check_step_result` helper for hard checks ("are all
-expected fields present and non-empty?").
-
-If the LLM is offline, only the hard checks run.
+The Operation Master dispatches check / verify operations here.
 """
 from __future__ import annotations
 
@@ -17,7 +10,8 @@ from typing import Any
 
 from langchain_core.runnables import Runnable
 
-from agents.subagents.base import Subagent, default_system_prompt
+from agents.prompts import VERIFY_SPECIALIST_PROMPT
+from agents.subagents.base import Subagent, extract_latest_tool_result
 from agents.task_planner import Step
 from tools import browser_get_page_info, browser_screenshot
 from tools._tooling import tool as _tool_decorator
@@ -65,55 +59,40 @@ def check_step_result(step: Step, result: dict) -> dict:
                     pass
         if spec == "bool" and not isinstance(value, bool):
             issues.append(f"{key} should be bool, got {type(value).__name__}")
-    # If the only issue is that an informational field (e.g. min_count)
-    # is missing but the primary list field is present, still pass.
     hard_issues = [i for i in issues if "missing key" not in i]
     return {"ok": not hard_issues, "issues": issues}
 
 
-class VerifierAgent(Subagent):
-    """Sub-agent specialised in validating prior step outputs."""
+class VerifyAgent(Subagent):
+    """Specialist for validating prior step outputs."""
 
-    name = "verifier"
+    name = "verify"
     description = "verification / sanity check specialist"
 
-    def __init__(self, llm) -> None:
-        super().__init__(llm, tools=[check_file_exists, browser_screenshot, browser_get_page_info])
+    def __init__(self, llm: Any) -> None:
+        super().__init__(
+            llm,
+            tools=[check_file_exists, browser_screenshot, browser_get_page_info],
+        )
 
     def build(self, scratchpad: dict) -> Runnable:
         from langgraph.prebuilt import create_react_agent
         return create_react_agent(
             self.llm,
             self.tools,
-            prompt=default_system_prompt(self.description),
+            prompt=VERIFY_SPECIALIST_PROMPT,
         )
 
     def _scratchpad_inputs(self, scratchpad: dict) -> dict:
         return {
             k: scratchpad[k]
-            for k in ("last_result", "expected_output", "pdf_paths")
+            for k in ("last_result", "expected_output", "expected_signals", "pdf_paths")
             if k in scratchpad
         }
 
     def _extract_data(self, response: Any) -> Any:
-        try:
-            messages = response.get("messages", [])
-        except AttributeError:
-            messages = []
-        for msg in reversed(messages):
-            content = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else None)
-            if not content:
-                continue
-            if isinstance(content, str) and "{" in content:
-                try:
-                    start = content.index("{")
-                    end = content.rindex("}") + 1
-                    return json.loads(content[start:end])
-                except (ValueError, json.JSONDecodeError):
-                    continue
-            if isinstance(content, dict):
-                return content
-        return response
+        """See :func:`agents.subagents.base.extract_latest_tool_result`."""
+        return extract_latest_tool_result(response)
 
 
-__all__ = ["VerifierAgent", "check_step_result"]
+__all__ = ["VerifyAgent", "check_step_result"]

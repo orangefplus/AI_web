@@ -40,6 +40,22 @@ import re
 import sys
 from typing import Final
 
+# ---------------------------------------------------------------------------
+# Force stdout / stderr to UTF-8 on Windows so that Chinese characters
+# survive the Python -> PowerShell -> file chain.  PowerShell on a
+# Chinese-locale Windows box defaults to the OEM code page (GBK/CP936)
+# for both the console and the Out-File / Tee-Object destinations; the
+# downstream .log files would otherwise be unreadable in the IDE.
+# ---------------------------------------------------------------------------
+for _stream_name in ("stdout", "stderr"):
+    _stream = getattr(sys, _stream_name, None)
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:  # noqa: BLE001
+            pass
+
+
 ROOT_LOGGER_NAME: Final[str] = ""  # root
 DEFAULT_FORMAT: Final[str] = "[%(asctime)s] [%(name)s] %(levelname)s | %(message)s"
 
@@ -163,17 +179,33 @@ def log_event(logger_name: str, message: str, **fields) -> None:
     Args:
         logger_name: One of the ``KEY_EVENT_LOGGERS`` entries.
         message: Human-readable message.
-        **fields: Extra context rendered after the message (key=value
-            pairs).
+        **fields: Extra context rendered after the message.
+
+    Multi-line values (e.g. JSON for an LLM payload) are emitted on
+    their own lines, indented to line up with the first column of the
+    main message so the operator can read the full content even when
+    it is several KB long.
     """
     log = logging.getLogger(logger_name)
     if not log.isEnabledFor(logging.INFO):
         return
-    if fields:
-        rendered = " ".join(f"{k}={v}" for k, v in fields.items())
-        log.info("%s | %s", message, rendered)
-    else:
+    if not fields:
         log.info(message)
+        return
+    # The format string is "[time] [logger] LEVEL | message". Indent
+    # any multi-line field value to line up after the "| message" so
+    # the column aligns with the first character after the pipe.
+    head = f" | {message}"
+    parts = [head]
+    for k, v in fields.items():
+        rendered = str(v) if v is not None else "None"
+        if "\n" in rendered or len(rendered) > 120:
+            # Multi-line / huge: emit on its own line, indented 2 spaces.
+            body = "\n".join("  " + line for line in rendered.splitlines())
+            parts.append(f"  {k}=\n{body}")
+        else:
+            parts.append(f"{k}={rendered}")
+    log.info("\n".join(parts))
 
 
 def _coerce_level(value: str | int) -> int:

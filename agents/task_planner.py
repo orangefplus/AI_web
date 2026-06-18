@@ -28,7 +28,10 @@ from tools._logging import log_event
 from .intent_router import Intent
 
 
-Subagent = Literal["api", "browser", "extractor", "verifier"]
+Subagent = Literal[
+    "api", "browser", "extractor", "verifier",
+    "tab", "click", "observe", "extract", "verify",
+]
 
 
 class Step(BaseModel):
@@ -223,6 +226,119 @@ def _research_papers_plan(intent: Intent) -> list[Step]:
     return plan
 
 
+def _browse_summary_plan(intent: Intent) -> list[Step]:
+    """Tiny 2-4 step plan for "open this URL, summarise the landing page".
+
+    Contrasts with the research_papers template: there's no search,
+    no candidate selection, no PDF download. The user wants ONE
+    page snapshot plus (optionally) an LLM-driven summary.
+
+    Steps:
+      1. browser: open the URL
+      2. browser: screenshot + read page text
+      3. extractor: produce a concise summary (only if requires_summary)
+      4. verifier: confirm the URL was reached and text was captured
+    """
+    user_url = (intent.params.get("url") or "").strip()
+    description = intent.params.get("description") or "目标页面"
+    scroll = bool(intent.params.get("scroll"))
+    wants_summary = bool(intent.requires_summary)
+
+    if user_url:
+        open_action = f"browser_new_tab('{user_url}')。如果该 URL 已经在 tab 里则先 browser_navigate 切回。"
+        open_desc = f"打开 {user_url}"
+    else:
+        # No URL given — just open the default homepage so the user
+        # can see *something* happened.
+        open_action = "browser_new_tab()，等待 2 秒后回到最常用搜索引擎主页，让用户先看到一个可观察的页面。"
+        open_desc = "打开默认首页"
+
+    observe_action = (
+        f"browser_screenshot(max_dim=1400),把截图路径记入 scratchpad['screenshot_path']。"
+        f"再 browser_read_page_text(max_chars=8000),把可见文本写入 scratchpad['page_text']。"
+    )
+    if scroll:
+        observe_action = (
+            "先 browser_screenshot(max_dim=1400) 记下首屏,再 browser_scroll_to(y=800) "
+            "滚到中部,再截一张存到 scratchpad['screenshot_path_2']。 "
+            "最后 browser_read_page_text(max_chars=12000) 把全页文本写入 scratchpad['page_text']。"
+        )
+
+    # Step 1 deliberately bundles (a) open URL, (b) screenshot,
+    # (c) read page text. Splitting these into separate steps used to
+    # give the LLM a chance to "feel done" after the first one and
+    # emit an empty Final Answer before calling read_page_text.
+    step1_action = (
+        f"{open_action}\n"
+        "  1. browser_screenshot(max_dim=1400),把截图路径写入 scratchpad['screenshot_path']。\n"
+        "  2. browser_read_page_text(max_chars=8000),把可见文本写入 scratchpad['page_text']。\n"
+        "  **必须** 真的依次调用上面两个工具,不能跳过、不能直接 Final Answer 空字符串。"
+    )
+    step1_expected = {
+        "screenshot_path": "str",
+        "page_text": "str",
+        "url": "str",
+    }
+    if scroll:
+        step1_action = (
+            f"{open_action}\n"
+            "  1. browser_screenshot(max_dim=1400) 首屏 → scratchpad['screenshot_path']。\n"
+            "  2. browser_scroll_to(y=900) 滚到中部,等 1 秒。\n"
+            "  3. browser_screenshot(max_dim=1400) 中部 → scratchpad['screenshot_path_2']。\n"
+            "  4. browser_read_page_text(max_chars=12000) 全页 → scratchpad['page_text']。\n"
+            "  **必须** 真的依次调用上面 4 个工具,不能跳过、不能直接 Final Answer 空字符串。"
+        )
+        step1_expected = {
+            "screenshot_path": "str",
+            "screenshot_path_2": "str",
+            "page_text": "str",
+            "url": "str",
+        }
+
+    plan: list[Step] = [
+        Step(
+            step_id=1,
+            description=f"打开 {open_desc} + 截图 + 读页面文本",
+            subagent="browser",
+            action=step1_action,
+            expected_output=step1_expected,
+        ),
+    ]
+    next_id = 2
+
+    if wants_summary:
+        plan.append(Step(
+            step_id=next_id,
+            description="基于页面文本生成中文摘要",
+            subagent="extractor",
+            action=(
+                "读取 scratchpad['page_text'],用 LLM 提炼 200-400 字的中文摘要,"
+                "覆盖页面结构(板块 / 区域)、关键内容(推荐 / 热门 / 通知)、"
+                "以及对用户可能有用的入口(链接 / 按钮 / 搜索框)。"
+                "把摘要写入 scratchpad['summary']。"
+                "**不要**再去打开新页面、不要再下任何文件。"
+            ),
+            expected_output={"summary": "str"},
+            depends_on=[1],
+        ))
+        next_id += 1
+
+    plan.append(Step(
+        step_id=next_id,
+        description="校验:已经到达目标 URL 并抓到页面文本",
+        subagent="verifier",
+        action=(
+            "检查 scratchpad['page_text'] 长度 >= 100(非空白);"
+            "如果 requires_summary=true,还要 scratchpad['summary'] 长度 >= 60;"
+            "不通过就报错并终止。"
+        ),
+        expected_output={"all_ok": "bool", "issues": "list[str]"},
+        depends_on=[s.step_id for s in plan if s.subagent != "verifier"],
+    ))
+
+    return plan
+
+
 def _shopping_plan(intent: Intent) -> list[Step]:
     item = intent.params.get("item", "")
     site = intent.params.get("site", "")
@@ -270,6 +386,7 @@ def _generic_plan(intent: Intent) -> list[Step]:
 
 _TEMPLATES = {
     "research_papers": _research_papers_plan,
+    "browse_summary": _browse_summary_plan,
     "shopping": _shopping_plan,
     "form_filling": _generic_plan,
     "data_scraping": _generic_plan,

@@ -1,0 +1,302 @@
+[
+  {
+    "i": 0,
+    "title": "Evolutionary Rule Extraction from Corporate Default Prediction Models",
+    "abs_url": "https://arxiv.org/abs/2605.29478",
+    "authors": "Desirè Fabbretti, Matteo Pasquino, Elia Pacioni, Caterina Lucarelli, Davide Calvaresi"
+  },
+  {
+    "i": 1,
+    "title": "Governance by Construction for Generalist Agents",
+    "abs_url": "https://arxiv.org/abs/2605.20874",
+    "authors": "Segev Shlomov, Iftach Shoham, Alon Oved, Ido Levy, Sami Marreed, Harold Ship, Offer Akrabi, Sergey Zeltyn, Avi Yaeli, Nir Mashkif"
+  },
+  {
+    "i": 2,
+    "title": "Comparative Evaluation of Machine Learning Approaches for Minority-Class Financial Distress Prediction Under Class Imbalance Constraints",
+    "abs_url": "https://arxiv.org/abs/2605.14067",
+    "authors": "Karan Sehgal, Khawar Naveed Bhatti"
+  },
+  {
+    "i": 3,
+    "title": "OPENJ: A Conceptual Framework for Open-Source Digital Human Modeling and Ergonomic Assessment in a CAD Environment",
+    "abs_url": "https://arxiv.org/abs/2605.04270",
+    "authors": "Sinan Bank, Casey E. Eaton"
+  },
+  {
+    "i": 4,
+    "title": "Organizational Security Resource Estimation via Vulnerability Queueing",
+    "abs_url": "https://arxiv.org/abs/2604.10250",
+    "authors": "Abdullah Y. Etcibasi, Zachary Dobos, C. Emre Koksal"
+  },
+  {
+    "i": 5,
+    "title": "Informationally Compressive Anonymization: Non-Degrading Sensitive Input Protection for Privacy-Preserving Supervised Machine Learning",
+    "abs_url": "https://arxiv.org/abs/2603.15842",
+    "authors": "Jeremy J Samuelson"
+  },
+  {
+    "i": 6,
+    "title": "The AI Transformation Gap Index (AITG): An Empirical Framework for Measuring AI Transformation Opportunity, Disruption Risk, and Value Creation at the Industry and Firm Level",
+    "abs_url": "https://arxiv.org/abs/2603.13278",
+    "authors": "Dean Barr"
+  },
+  {
+    "i": 7,
+    "title": "Operationalising Cyber Risk Management Using AI: Connecting Cyber Incidents to MITRE ATT&CK Techniques, Security Controls, and Metrics",
+    "abs_url": "https://arxiv.org/abs/2603.12455",
+    "authors": "Emad Sherif, Iryna Yevseyeva, Vitor Basto-Fernandes, Allan Cook"
+  },
+  {
+    "i": 8,
+    "title": "Security Considerations for Artificial Intelligence Agents",
+    "abs_url": "https://arxiv.org/abs/2603.12230",
+    "authors": "Ninghui Li, Kaiyuan Zhang, Kyle Polley, Jerry Ma"
+  },
+  {
+    "i": 9,
+    "title": "Interpretable Markov-Based Spatiotemporal Risk Surfaces for Missing-Child Search Planning with Reinforcement Learning and LLM-Based Quality Assurance",
+    "abs_url": "https://arxiv.org/abs/2603.08933",
+    "authors": "Joshua Castillo, Ravi Mukkamala"
+  },
+  {
+    "i": 10,
+    "title": "Evaluating SAP RPT-1 for Enterprise Business Process Prediction: In-Context Learning vs. Traditional Machine Learning on Structured SAP Data",
+    "abs_url": "https://arxiv.org/abs/2602.19237",
+    "authors": "Amit Lal"
+  },
+  {
+    "i": 11,
+    "title": "Stable Time Series Prediction of Enterprise Carbon Emissions Based on Causal Inference",
+    "abs_url": "https://arxiv.org/abs/2602.00775",
+    "authors": "Zitao Hong, Zhen Peng, Xueping Liu"
+  },
+  {
+    "i": 12,
+    "title": "Foresight Learning for SEC Risk Prediction",
+    "abs_url": "https://arxiv.org/abs/2601.19189",
+    "authors": "Benjamin Turtel, Paul Wilczewski, Danny Franklin, Kris Skotheim"
+  },
+  {
+    "i": 13,
+    "title": "What Understanding Means in AI-Laden Astronomy",
+    "abs_url": "https://arxiv.org/abs/2601.10038",
+    "authors": "Yuan-Sen Ting, André Curtis-Trudel, Siyu Yao"
+  },
+  {
+    "i": 14,
+    "title": "Temporal-Aligned Meta-Learning for Risk Management: A Stacking Approach for Multi-Source Credit Scoring",
+    "abs_url": "https://arxiv.org/abs/2601.07588",
+    "authors": "O. Didkovskyi, A. Vidali, N. Jean, G. Le Pera"
+  },
+  {
+    "i": 15,
+    "title": "Admissibility Alignment",
+    "abs_url": "https://arxiv.org/abs/2601.01816",
+    "authors": "Chris Duffey"
+  },
+  {
+    "i": 16,
+    "title": "Multimodal Insights into Credit Risk Modelling: Integrating Climate and Text Data for Default Prediction",
+    "abs_url": "https://arxiv.org/abs/2601.00478",
+    "authors": "Zongxiao Wu, Ran Liu, Jiang Dai, Dan Luo"
+  },
+  {
+    "i": 17,
+    "title": "Enterprise Profit Prediction Using Multiple Data Sources with Missing Values through Vertical Federated Learning",
+    "abs_url": "https://arxiv.org/abs/2511.21278",
+    "authors": "Huiyun Tang, Feifei Wang, Long Feng, Yang Li"
+  },
+  {
+    "i": 18,
+    "title": "A Multimodal Approach to SME Credit Scoring Integrating Transaction and Ownership Networks",
+    "abs_url": "https://arxiv.org/abs/2510.09407",
+    "authors": "Sahab Zandi, Kamesh Korangi, Juan C. Moreno-Paredes, María Óskarsdóttir, Christophe Mues, Cristián Bravo"
+  },
+  {
+    "i": 19,
+    "title": "A Modality-Aware Cooperative Co-Evolutionary Framework for Multimodal Graph Neural Architecture Search",
+    "abs_url": "https://arxiv.org/abs/2510.07325",
+    "authors": "Sixuan Wang, Jiao Yin, Jinli Cao, Mingjian Tang, Yong-Feng Ge"
+  },
+  {
+    "i": 20,
+    "title": "Multi-Channel Graph Neural Network for Financial Risk Prediction of NEEQ Enterprises",
+    "abs_url": "https://arxiv.org/abs/2507.12787",
+    "authors": "Jianyu Zhu"
+  },
+  {
+    "i": 21,
+    "title": "Credit Risk Analysis for SMEs Using Graph Neural Networks in Supply Chain",
+    "abs_url": "https://arxiv.org/abs/2507.07854",
+    "authors": "Zizhou Zhang, Qinyan Shen, Zhuohuan Hu, Qianying Liu, Huijie Shen"
+  },
+  {
+    "i": 22,
+    "title": "Machine Learning based Enterprise Financial Audit Framework and High Risk Identification",
+    "abs_url": "https://arxiv.org/abs/2507.06266",
+    "authors": "Tingyu Yuan, Xi Zhang, Xuanjing Chen"
+  },
+  {
+    "i": 23,
+    "title": "Modeling supply chain compliance response strategies based on AI synthetic data with structural path regression: A Simulation Study of EU 2027 Mandatory Labor Regulations",
+    "abs_url": "https://arxiv.org/abs/2505.06261",
+    "authors": "Wei Meng"
+  },
+  {
+    "i": 24,
+    "title": "Bankruptcy analysis using images and convolutional neural networks (CNN)",
+    "abs_url": "https://arxiv.org/abs/2502.15726",
+    "authors": "Luiz Tavares, Jose Mazzon, Francisco Paletta, Fabio Barros"
+  },
+  {
+    "i": 25,
+    "title": "Heterogeneous Graph Pre-training Based Model for Secure and Efficient Prediction of Default Risk Propagation among Bond Issuers",
+    "abs_url": "https://arxiv.org/abs/2501.03268",
+    "authors": "Xurui Li, Xin Shan, Wenhao Yin, Haijiao Wang"
+  },
+  {
+    "i": 26,
+    "title": "Predicting Vulnerability to Malware Using Machine Learning Models: A Study on Microsoft Windows Machines",
+    "abs_url": "https://arxiv.org/abs/2501.02493",
+    "authors": "Marzieh Esnaashari, Nima Moradi"
+  },
+  {
+    "i": 27,
+    "title": "Unveiling the Potential of Graph Neural Networks in SME Credit Risk Assessment",
+    "abs_url": "https://arxiv.org/abs/2409.17909",
+    "authors": "Bingyao Liu, Iris Li, Jianhua Yao, Yuan Chen, Guanming Huang, Jiajing Wang"
+  },
+  {
+    "i": 28,
+    "title": "Credit Risk Assessment Model for UAE Commercial Banks: A Machine Learning Approach",
+    "abs_url": "https://arxiv.org/abs/2407.12044",
+    "authors": "Aditya Saxena, Dr Parizad Dungore"
+  },
+  {
+    "i": 29,
+    "title": "How to integrate cloud service, data analytic and machine learning technique to reduce cyber risks associated with the modern cloud based infrastructure",
+    "abs_url": "https://arxiv.org/abs/2405.11601",
+    "authors": "Upakar Bhatta"
+  },
+  {
+    "i": 30,
+    "title": "Transforming Investment Strategies and Strategic Decision-Making: Unveiling a Novel Methodology for Enhanced Performance and Risk Management in Financial Markets",
+    "abs_url": "https://arxiv.org/abs/2405.01892",
+    "authors": "Tian Tian, Ricky Cooper, Jiahao Deng, Qingquan Zhang"
+  },
+  {
+    "i": 31,
+    "title": "Augmenting Bankruptcy Prediction using Reported Behavior of Corporate Restructuring",
+    "abs_url": "https://arxiv.org/abs/2401.14901",
+    "authors": "Xinlin Wang, Mats Brorsson"
+  },
+  {
+    "i": 32,
+    "title": "Formulating A Strategic Plan Based On Statistical Analyses And Applications For Financial Companies Through A Real-World Use Case",
+    "abs_url": "https://arxiv.org/abs/2307.04778",
+    "authors": "Saman Sarraf"
+  },
+  {
+    "i": 33,
+    "title": "DETECTA: Investigación de metodologías no intrusivas apoyadas en tecnologías habilitadoras 4.0 para abordar un mantenimiento predictivo y ciberseguro en pymes industriales",
+    "abs_url": "https://arxiv.org/abs/2306.05799",
+    "authors": "Alvaro García, Alejandro Echeverría, José Félix Ovejero"
+  },
+  {
+    "i": 34,
+    "title": "Causal Analysis of Customer Churn Using Deep Learning",
+    "abs_url": "https://arxiv.org/abs/2304.10604",
+    "authors": "David Hason Rudd, Huan Huo, Guandong Xu"
+  },
+  {
+    "i": 35,
+    "title": "AD-BERT: Using Pre-trained contextualized embeddings to Predict the Progression from Mild Cognitive Impairment to Alzheimer's Disease",
+    "abs_url": "https://arxiv.org/abs/2212.06042",
+    "authors": "Chengsheng Mao, Jie Xu, Luke Rasmussen, Yikuan Li, Prakash Adekkanattu, Jennifer Pacheco, Borna Bonakdarpour, Robert Vassar, Guoqian Jiang, Fei Wang, Jyotishman Pathak, Yuan Luo"
+  },
+  {
+    "i": 36,
+    "title": "A Comprehensive Survey on Enterprise Financial Risk Analysis from Big Data and LLMs Perspective",
+    "abs_url": "https://arxiv.org/abs/2211.14997",
+    "authors": "Huaming Du, Cancan Feng, Yuqian Lei, Chenyang Zhang, Guisong Liu, Gang Kou, Carl Yang, Yu Zhao"
+  },
+  {
+    "i": 37,
+    "title": "HGV4Risk: Hierarchical Global View-guided Sequence Representation Learning for Risk Prediction",
+    "abs_url": "https://arxiv.org/abs/2211.07956",
+    "authors": "Youru Li, Zhenfeng Zhu, Xiaobo Guo, Shaoshuai Li, Yuchen Yang, Yao Zhao"
+  },
+  {
+    "i": 38,
+    "title": "Supply Chain Characteristics as Predictors of Cyber Risk: A Machine-Learning Assessment",
+    "abs_url": "https://arxiv.org/abs/2210.15785",
+    "authors": "Kevin Hu, Retsef Levi, Raphael Yahalom, El Ghali Zerhouni"
+  },
+  {
+    "i": 39,
+    "title": "Risk Automatic Prediction for Social Economy Companies using Camels",
+    "abs_url": "https://arxiv.org/abs/2210.05052",
+    "authors": "Joseph Gallego-Mejia, Daniela Martin-Vega, Fabio Gonzalez"
+  },
+  {
+    "i": 40,
+    "title": "Economics and Optimal Investment Policies of Attackers and Defenders in Cybersecurity",
+    "abs_url": "https://arxiv.org/abs/2207.09497",
+    "authors": "Austin Ebel, Debasis Mitra"
+  },
+  {
+    "i": 41,
+    "title": "Heterogeneous Information Network based Default Analysis on Banking Micro and Small Enterprise Users",
+    "abs_url": "https://arxiv.org/abs/2204.11849",
+    "authors": "Zheng Zhang, Yingsheng Ji, Jiachen Shen, Xi Zhang, Guangwen Yang"
+  },
+  {
+    "i": 42,
+    "title": "Combining Intra-Risk and Contagion Risk for Enterprise Bankruptcy Prediction Using Graph Neural Networks",
+    "abs_url": "https://arxiv.org/abs/2202.03874",
+    "authors": "Yu Zhao, Shaopeng Wei, Yu Guo, Qing Yang, Xingyan Chen, Qing Li, Fuzhen Zhuang, Ji Liu, Gang Kou"
+  },
+  {
+    "i": 43,
+    "title": "Is this IoT Device Likely to be Secure? Risk Score Prediction for IoT Devices Using Gradient Boosting Machines",
+    "abs_url": "https://arxiv.org/abs/2111.11874",
+    "authors": "Carlos A. Rivera Alvarez, Arash Shaghaghi, David D. Nguyen, Salil S. Kanhere"
+  },
+  {
+    "i": 44,
+    "title": "Dynamic cyber risk estimation with Competitive Quantile Autoregression",
+    "abs_url": "https://arxiv.org/abs/2101.10893",
+    "authors": "Raisa Dzhamtyrova, Carsten Maple"
+  },
+  {
+    "i": 45,
+    "title": "The value of text for small business default prediction: A deep learning approach",
+    "abs_url": "https://arxiv.org/abs/2003.08964",
+    "authors": "Matthew Stevenson, Christophe Mues, Cristián Bravo"
+  },
+  {
+    "i": 46,
+    "title": "AI Trust in business processes: The need for process-aware explanations",
+    "abs_url": "https://arxiv.org/abs/2001.07537",
+    "authors": "Steve T. K. Jan, Vatche Ishakian, Vinod Muthusamy"
+  },
+  {
+    "i": 47,
+    "title": "Efficient Top-k Vulnerable Nodes Detection in Uncertain Graphs",
+    "abs_url": "https://arxiv.org/abs/1912.12383",
+    "authors": "Dawei Cheng, Chen Chen, Xiaoyang Wang, Sheng Xiang"
+  },
+  {
+    "i": 48,
+    "title": "Cloudy with high chance of DBMS: A 10-year prediction for Enterprise-Grade ML",
+    "abs_url": "https://arxiv.org/abs/1909.00084",
+    "authors": "Ashvin Agrawal, Rony Chatterjee, Carlo Curino, Avrilia Floratou, Neha Gowdal, Matteo Interlandi, Alekh Jindal, Kostantinos Karanasos, Subru Krishnan, Brian Kroth, Jyoti Leeka, Kwanghyun Park, Hiren Patel, Olga Poppe, Fotis Psallidas, Raghu Ramakrishn"
+  },
+  {
+    "i": 49,
+    "title": "Infinitely Stochastic Micro Forecasting",
+    "abs_url": "https://arxiv.org/abs/1908.10636",
+    "authors": "Matúš Maciak, Ostap Okhrin, Michal Pešta"
+  }
+]

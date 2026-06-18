@@ -27,6 +27,7 @@ from tools._logging import log_event
 
 Domain = Literal[
     "research_papers",
+    "browse_summary",
     "shopping",
     "form_filling",
     "data_scraping",
@@ -69,7 +70,7 @@ _INTENT_SYSTEM_PROMPT = """You are an intent classifier for a browser automation
 
 Return ONLY a JSON object with this schema:
 {
-  "domain": one of ["research_papers","shopping","form_filling","data_scraping","general_browser_task","unknown"],
+  "domain": one of ["research_papers","browse_summary","shopping","form_filling","data_scraping","general_browser_task","unknown"],
   "confidence": float between 0 and 1,
   "params": object with domain-specific fields, see below,
   "needs_browser": bool,
@@ -79,6 +80,7 @@ Return ONLY a JSON object with this schema:
 
 Domain parameter hints:
 - research_papers: {"topic": "<string>", "count": int, "must_be_published": bool, "download": bool, "language": "zh" | "en"}
+- browse_summary: {"url": "<string>", "description": "<string>"} — the user wants to open a URL (or just "arxiv" / "the site") and read/summarise its landing page, NOT to search for papers.
 - shopping: {"item": "<string>", "site": "<string>", "max_price": float, "currency": "CNY" | "USD"}
 - form_filling: {"url": "<string>", "fields": {"name": "value"}}
 - data_scraping: {"url": "<string>", "fields": ["title","price"], "max_pages": int}
@@ -91,6 +93,8 @@ Rules:
 - If the request mentions "published"/"已发表"/"期刊"/"会议" => must_be_published=true.
 - Set needs_api=true for domains with known APIs (research_papers, data_scraping).
 - Default needs_browser=true unless the request is clearly API-only.
+- IMPORTANT: If the request says "打开 <URL or 站点>" and ALSO says "总结"/"介绍"/"看看"/"首页"/"看", and does NOT mention "论文/paper/找/搜/下载", classify as browse_summary (not research_papers). The user is asking to view one page, not to run a multi-step paper search.
+- If the user only says "打开 <URL>" with no further intent, classify as browse_summary with requires_summary=false.
 
 Respond with JSON only. No commentary, no markdown fences."""
 
@@ -116,6 +120,12 @@ def _parse_llm_json(raw: str) -> dict:
 # ---------------------------------------------------------------------------
 
 _KEYWORD_RULES: list[tuple[re.Pattern, dict]] = [
+    # High-priority: pure "open URL + look at it" requests. The presence
+    # of an "open + 总结/看/介绍" pattern with no "找/搜/论文" beats
+    # every other rule, because it expresses a fundamentally different
+    # workflow (one page snapshot vs. multi-step search).
+    (re.compile(r"打开\s*\S+.*?(?:总结|介绍|看看|首页|看一下|看看)|(?:总结|介绍)\s*一下\s*\S+", re.I),
+     {"domain": "browse_summary", "needs_api": False, "needs_browser": True}),
     (re.compile(r"论文|paper|article|research", re.I),
      {"domain": "research_papers", "needs_api": True, "needs_browser": True}),
     (re.compile(r"买|shop|buy|商品|产品", re.I),
@@ -194,6 +204,17 @@ def _extract_inline_params(text: str, domain: str) -> dict:
         m = re.search(r"买\s*(.+?)(?:\s|$)", text)
         if m:
             params["item"] = m.group(1).strip()
+    elif domain == "browse_summary":
+        # The whole instruction is the description; the URL is already
+        # extracted by the generic ``_extract_url`` above. We don't try
+        # to do topic / count / download inference here — those are
+        # research_papers concerns and would confuse the planner.
+        params.setdefault("description", text.strip())
+        # Detect "滚动 / 看看内容" hints so the planner can plan a
+        # short scroll-and-read step instead of a hard stop on the
+        # first viewport.
+        if re.search(r"内容|看仔细|看完整|整页|滚动", text, re.I):
+            params["scroll"] = True
     return params
 
 

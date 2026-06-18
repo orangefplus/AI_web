@@ -1,0 +1,11 @@
+chore: initial commit
+
+Multi-agent browser orchestrator driving a real Chrome window via CDP.
+
+- Strict-browser research workflow (Google Scholar / WebVPN / etc.)
+- ReAct browser agent over screenshot + click_xy + read_page_text + dismiss_overlay
+- Intent router with URL / topic / count / "no download" extraction
+- Task planner with domain-specific Step templates
+- LLM wrapper with tenacity retries (handles 502/timeout)
+- ANSI-stripped, key-event-only logging
+- README + .env.example + .gitignore in place

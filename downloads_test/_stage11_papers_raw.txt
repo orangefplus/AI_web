@@ -1,0 +1,4 @@
+  File "<string>", line 15
+    js = '''
+         ^
+SyntaxError: unterminated triple-quoted string literal (detected at line 20)
