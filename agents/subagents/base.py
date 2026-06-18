@@ -74,9 +74,27 @@ class Subagent(ABC):
         try:
             runnable = self.build(scratchpad)
             user_msg = self._compose_user_message(step, scratchpad)
-            response = runnable.invoke({
-                "messages": [{"role": "user", "content": user_msg}],
-            })
+            # Tenacity retry: 讯飞 one-api 偶发 "Engine Busy" (500) /
+            # timeout / 502 — 必须重试多次,否则整个任务挂掉。
+            from tenacity import (
+                retry, stop_after_attempt, wait_exponential,
+                retry_if_exception_type, before_sleep_log,
+            )
+            _log = logging.getLogger(f"agent.subagent.{self.name}.llm_retry")
+
+            @retry(
+                reraise=True,
+                stop=stop_after_attempt(4),
+                wait=wait_exponential(multiplier=2, min=2, max=20),
+                retry=retry_if_exception_type(Exception),
+                before_sleep=before_sleep_log(_log, logging.WARNING),
+            )
+            def _invoke():
+                return runnable.invoke({
+                    "messages": [{"role": "user", "content": user_msg}],
+                })
+
+            response = _invoke()
             data = self._extract_data(response)
             elapsed = int((time.monotonic() - start) * 1000)
             log_event(

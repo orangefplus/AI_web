@@ -1,11 +1,43 @@
-chore: initial commit
+feat: 6 new form tools (checkbox/radio/select/submit/label) + live progress + retry
 
-Multi-agent browser orchestrator driving a real Chrome window via CDP.
+Browser layer:
+- browser_check_checkbox(selector, value=True)
+  - DOM-level check/uncheck, fires change event, works for styled/hidden inputs
+- browser_click_radio(selector)
+  - Click radio, fires change so React/Vue forms react
+- browser_select_option(selector, value|text|index)
+  - Pick option in <select> by value / text / index
+- browser_submit_form(selector)
+  - Submit a <form> or click a submit button
+- browser_find_field_by_label(label_text)
+  - Resolve the form control for a visible label string
+  - Returns JSON descriptor: {id, name, tag, type, value, checked, options}
+- browser_list_form_fields()
+  - Enumerate every visible form control on the page as JSON
 
-- Strict-browser research workflow (Google Scholar / WebVPN / etc.)
-- ReAct browser agent over screenshot + click_xy + read_page_text + dismiss_overlay
-- Intent router with URL / topic / count / "no download" extraction
-- Task planner with domain-specific Step templates
-- LLM wrapper with tenacity retries (handles 502/timeout)
-- ANSI-stripped, key-event-only logging
-- README + .env.example + .gitignore in place
+Bug fix:
+- browser.py: browser_read_page_text() was passing max_chars=8000 as
+  CDP targetId, which triggered BINDINGS: "string value expected".
+  Drop the bogus 2nd arg - max_chars is already enforced inside the JS.
+
+Agent wiring:
+- click_agent.py: registers all 4 write tools
+- observe_agent.py: registers both read-only tools
+- prompts.py CLICK_SPECIALIST_PROMPT: explicitly tells the LLM to
+  prefer find_field_by_label for styled forms (arxiv, gov portals)
+- BROWSER_TOOLS in tools/browser.py: export all 6
+
+Reliability:
+- agents/react_master.py: tenacity retry on 讯飞 5xx with
+  exponential backoff (2s -> 4s -> 8s) and 3 attempts
+- agents/subagents/base.py: same retry on sub-agent LLM calls
+- scripts/run_agent.py: live progress handler that flushes
+  agent.middleware.* / agent.supervisor.* / agent.react.* events
+  to stdout with HH:MM:SS timestamp so the user sees the
+  ReAct loop ticking in real time
+
+Codex: full-stack demo for the arxiv advanced-search form
+(downloads_test/_form_smoke.py) drives all 6 new tools and the
+search form is now fully fillable end-to-end.
+
+Co-authored-by: orangefplus <orangefplus@users.noreply.github.com>

@@ -13,7 +13,9 @@ from agents.prompts import OBSERVE_SPECIALIST_PROMPT
 from agents.subagents.base import Subagent, extract_latest_tool_result
 from tools import (
     browser_extract_links,
+    browser_find_field_by_label,
     browser_get_page_info,
+    browser_list_form_fields,
     browser_read_page_text,
     browser_run_js,
     browser_screenshot,
@@ -52,6 +54,10 @@ class ObserveAgent(Subagent):
                 browser_wait_for_load,
                 browser_wait_for_element,
                 browser_wait_for_network_idle,
+                # form introspection (read-only — returns descriptors,
+                # never mutates the page)
+                browser_list_form_fields,
+                browser_find_field_by_label,
             ],
         )
 

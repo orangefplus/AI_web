@@ -18,6 +18,7 @@ a success/failure report.
 from __future__ import annotations
 
 import time
+import json
 from typing import Literal, Optional
 
 from browser_harness import helpers as _bh
@@ -391,6 +392,250 @@ def browser_fill_input(
     setup_browser()
     _bh.fill_input(selector, text, clear_first=clear_first, timeout=timeout)
     return f"filled {selector!r} with {len(text)} chars"
+
+
+# ---------------------------------------------------------------------------
+# Form-control helpers (checkbox / radio / select / submit / label)
+#
+# These were added because the arxiv advanced-search page (and many
+# government / enterprise portals) use complex forms that *cannot* be
+# driven with `fill_input` + `click_xy` alone — the click often misses
+# the actual radio, the dropdown selection doesn't fire the change
+# event that React listens to, etc.  These helpers speak the DOM API
+# directly and dispatch the correct events.
+# ---------------------------------------------------------------------------
+
+
+@tool
+def browser_check_checkbox(selector: str, value: bool = True) -> str:
+    """Check or uncheck a checkbox by CSS selector.
+
+    Unlike :func:`browser_click_xy`, this uses ``el.click()`` so it
+    works for visually-hidden checkboxes (e.g. the styled checkboxes
+    on arxiv's advanced search page where the actual ``<input>`` is
+    offscreen under a ``<label>``).  It also fires a ``change`` event
+    so React/Vue forms pick it up.
+
+    Args:
+        selector: CSS selector for the ``<input type="checkbox">``.
+        value: Desired state — ``True`` to check, ``False`` to uncheck.
+
+    Returns:
+        Short string with the resulting state.
+    """
+    setup_browser()
+    expr = (
+        f"(()=>{{const el=document.querySelector({selector!r});"
+        f"if(!el) throw new Error('element not found: '+{selector!r});"
+        f"if(el.type!=='checkbox') throw new Error('not a checkbox (type='+el.type+')');"
+        f"if(el.checked!=={'true' if value else 'false'}){{el.click();}}"
+        f"el.dispatchEvent(new Event('change',{{bubbles:true}}));"
+        f"return JSON.stringify({{checked:el.checked,name:el.name,value:el.value}});}})()"
+    )
+    out = _bh.js(expr) or ""
+    return f"checkbox {selector!r} -> {out}"
+
+
+@tool
+def browser_click_radio(selector: str) -> str:
+    """Click a radio button by CSS selector.
+
+    Fires ``change`` after clicking so React forms react.
+
+    Args:
+        selector: CSS selector for the ``<input type="radio">``.
+
+    Returns:
+        Short string with the resulting state.
+    """
+    setup_browser()
+    expr = (
+        f"(()=>{{const el=document.querySelector({selector!r});"
+        f"if(!el) throw new Error('element not found: '+{selector!r});"
+        f"if(el.type!=='radio') throw new Error('not a radio (type='+el.type+')');"
+        f"el.click();"
+        f"el.dispatchEvent(new Event('change',{{bubbles:true}}));"
+        f"return JSON.stringify({{checked:el.checked,value:el.value,name:el.name}});}})()"
+    )
+    out = _bh.js(expr) or ""
+    return f"radio {selector!r} -> {out}"
+
+
+@tool
+def browser_select_option(
+    selector: str,
+    value: str = "",
+    text: str = "",
+    index: int = -1,
+) -> str:
+    """Pick an option in a ``<select>`` dropdown by value / text / index.
+
+    At least one of ``value`` / ``text`` / ``index`` must be given.
+    Fires ``change`` after the value is set so React/Vue forms react.
+    This is the right tool for things like the arxiv search field
+    selector (Title / Author / Abstract / ...).
+
+    Args:
+        selector: CSS selector for the ``<select>``.
+        value: ``option.value`` to select.
+        text: visible text of the option to select.
+        index: zero-based option index.
+
+    Returns:
+        Short string with the resulting state.
+    """
+    setup_browser()
+    if not (value or text or index >= 0):
+        raise ValueError("browser_select_option: provide value, text, or index")
+    # Use a stable function so the actual user-supplied strings never
+    # get spliced into the function *header*.  Inlining them as
+    # `('Title')=>{...}` is a parse error.
+    expr = (
+        "(function(el, val, txt, idx){"
+        "if(!el) throw new Error('element not found');"
+        "if(el.tagName!=='SELECT') throw new Error('not a select (tag='+el.tagName+')');"
+        "let picked=null;"
+        "if(val !== '' && el.value===val){picked=el.value;}"
+        "else{"
+        "  for(let i=0;i<el.options.length;i++){"
+        "    const o=el.options[i];"
+        "    if((txt && (o.text===txt||o.textContent.trim()===txt))||"
+        "       (idx>=0 && i===idx)){picked=o.value;el.selectedIndex=i;break;}"
+        "  }"
+        "}"
+        "if(picked===null) throw new Error('option not found (value='+val+', text='+txt+', idx='+idx+')');"
+        "el.dispatchEvent(new Event('change',{bubbles:true}));"
+        "return JSON.stringify({value:el.value,selectedIndex:el.selectedIndex,selectedText:el.options[el.selectedIndex].text});"
+        "})"
+    )
+    args = f"document.querySelector({selector!r}),{json.dumps(value)},{json.dumps(text)},{int(index)}"
+    out = _bh.js(f"{expr}({args})") or ""
+    return f"select {selector!r} -> {out}"
+
+
+@tool
+def browser_submit_form(selector: str) -> str:
+    """Submit a form or click a submit button by CSS selector.
+
+    Useful for complex multi-step forms where pressing Enter on a
+    text field doesn't submit.  Detects ``<form>`` and submits
+    via ``form.submit()``; otherwise clicks the matched element
+    (typically a ``<button type=submit>``).
+
+    Args:
+        selector: CSS selector for the form or submit button.
+
+    Returns:
+        Short confirmation string.
+    """
+    setup_browser()
+    expr = (
+        f"(()=>{{const el=document.querySelector({selector!r});"
+        f"if(!el) throw new Error('element not found: '+{selector!r});"
+        f"if(el.tagName==='FORM'){{el.submit();return 'form submitted';}}"
+        f"if(el.type==='submit'||el.tagName==='BUTTON'){{el.click();return 'button clicked';}}"
+        f"throw new Error('not a form or submit (tag='+el.tagName+', type='+el.type+')');"
+        f"}})()"
+    )
+    out = _bh.js(expr) or ""
+    return f"submit {selector!r} -> {out}"
+
+
+@tool
+def browser_find_field_by_label(label_text: str) -> str:
+    """Locate the form field associated with a given visible label.
+
+    On the arxiv advanced-search page the labels are next to the
+    checkboxes / radio buttons, but the LLM has no easy way to map
+    label text → CSS selector.  This helper scans all ``<label>``
+    elements, finds one whose visible text contains ``label_text``
+    (case-insensitive), and returns a *JSON* description of the
+    associated form control — including the resolved id, name, type,
+    and current value.  Use the returned id to drive
+    :func:`browser_check_checkbox` / :func:`browser_click_radio` /
+    :func:`browser_fill_input`.
+
+    Args:
+        label_text: Substring of the label's visible text (e.g.
+            ``"Quantitative Finance"``).
+
+    Returns:
+        JSON string with ``{id, name, tag, type, value, checked, options?}``
+        or an error message starting with ``"not found:"``.
+    """
+    setup_browser()
+    # Use a stable parameter name `needle` and substitute the actual
+    # string only into the argument list, *not* into the function
+    # body.  Otherwise the engine sees `('Title')=>{...}` which is a
+    # parse error.
+    expr = (
+        "(function(needle){"
+        "const labels=document.querySelectorAll('label');"
+        "let target=null,matched='';"
+        "for(const lbl of labels){"
+        "  const txt=(lbl.textContent||'').trim();"
+        "  if(txt.toLowerCase().indexOf(needle.toLowerCase())>=0){"
+        "    let el=null;"
+        "    const fid=lbl.getAttribute('for');"
+        "    if(fid) el=document.getElementById(fid);"
+        "    if(!el) el=lbl.querySelector('input,select,textarea');"
+        "    if(el){target=el;matched=txt;break;}"
+        "  }"
+        "}"
+        "if(!target) return 'not found: '+needle;"
+        "const desc={id:target.id||'',name:target.name||'',tag:target.tagName,type:target.type||''};"
+        "if(target.tagName==='SELECT'){"
+        "  desc.options=Array.from(target.options).map(o=>({value:o.value,text:o.text,selected:o.selected}));"
+        "}else{"
+        "  desc.value=target.value||'';if(target.type==='checkbox'||target.type==='radio')desc.checked=target.checked;"
+        "}"
+        "return JSON.stringify({matched_label:matched,...desc});"
+        "})"
+    )
+    out = _bh.js(f"{expr}({json.dumps(label_text)})") or ""
+    return out
+
+
+@tool
+def browser_list_form_fields() -> str:
+    """Enumerate every visible form control on the current page.
+
+    Returns a JSON array of objects, one per form control, with::
+
+        {tag, type, id, name, label, value, checked, placeholder}
+
+    Use this to plan multi-step form interactions without guessing
+    selectors — pass the result to the LLM in the next prompt.
+    """
+    setup_browser()
+    expr = (
+        "()=>{"
+        "const out=[];"
+        "const ctrls=document.querySelectorAll('input,select,textarea,button[type=submit]');"
+        "for(const el of ctrls){"
+        "  const t=(el.type||el.tagName).toLowerCase();"
+        "  if(t==='hidden') continue;"
+        "  let label='';"
+        "  if(el.id){"
+        "    const lbl=document.querySelector('label[for=\"'+el.id+'\"]');"
+        "    if(lbl) label=(lbl.textContent||'').trim().replace(/\\s+/g,' ');"
+        "  }"
+        "  if(!label){const p=el.closest('label');if(p)label=(p.textContent||'').trim().replace(/\\s+/g,' ');}"
+        "  const cs=getComputedStyle(el);"
+        "  if(cs.display==='none'||cs.visibility==='hidden') continue;"
+        "  const item={tag:el.tagName,type:t,id:el.id||'',name:el.name||'',label:label.slice(0,80),"
+        "    placeholder:el.placeholder||'',value:el.value||''};"
+        "  if(t==='checkbox'||t==='radio') item.checked=el.checked;"
+        "  if(el.tagName==='SELECT'){"
+        "    item.options=Array.from(el.options).slice(0,30).map(o=>({value:o.value,text:o.text,selected:o.selected}));"
+        "  }"
+        "  out.push(item);"
+        "}"
+        "return JSON.stringify(out);"
+        "}"
+    )
+    out = _bh.js(f"({expr})()") or ""
+    return out
 
 
 @tool
@@ -771,7 +1016,7 @@ def browser_read_page_text(max_chars: int = 8000) -> str:
         "  return s.length > arguments[0] ? s.slice(0, arguments[0]) : s;"
         "})()"
     )
-    return _bh.js(expression, max_chars) or ""
+    return _bh.js(expression) or ""  # runs in the attached tab; max_chars is handled by the JS itself (s.slice(0, max_chars))
 
 
 @tool
@@ -1143,6 +1388,13 @@ BROWSER_TOOLS = [
     browser_upload_file,
     browser_dismiss_overlay,
     browser_handle_dialog,
+    # form controls (checkbox / radio / select / submit / label-resolve)
+    browser_check_checkbox,
+    browser_click_radio,
+    browser_select_option,
+    browser_submit_form,
+    browser_find_field_by_label,
+    browser_list_form_fields,
     # observation
     browser_screenshot,
     browser_get_page_info,

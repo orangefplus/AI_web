@@ -49,6 +49,56 @@ def _bootstrap_path() -> None:
 _bootstrap_path()
 
 
+def _attach_live_progress_handler() -> None:
+    """Stream every supervisor / middleware event to stdout in real time.
+
+    Without this, a multi-minute LLM task would print nothing until
+    the final answer is ready, which feels frozen.  We attach a
+    :class:`logging.Handler` that filters for the framework's key
+    event loggers (``agent.supervisor.*`` and ``agent.middleware.*``)
+    and prints a short, single-line, flushed progress message for
+    each one.
+
+    Idempotent: registering twice is a no-op.
+    """
+    import logging
+
+    root = logging.getLogger()
+    for h in root.handlers:
+        if getattr(h, "_live_progress_marker", False):
+            return  # already attached
+
+    # Only show the framework events; quiet down DEBUG chatter.
+    interesting = (
+        "agent.supervisor",
+        "agent.middleware",
+        "agent.react",
+        "agent.direction",
+        "agent.refiner",
+        "agent.classifier",
+        "agent.operation",
+    )
+
+    class _ProgressHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:  # noqa: D401
+            if not any(record.name.startswith(p) for p in interesting):
+                return
+            msg = record.getMessage()
+            # Collapse multi-line structured-field payloads to a short
+            # "key=value" preview; the user wants progress, not JSON.
+            short = msg.replace("\n", " ⏎ ")
+            if len(short) > 220:
+                short = short[:217] + "..."
+            # Timestamp in HH:MM:SS so the user can see liveness.
+            t = time.strftime("%H:%M:%S")
+            print(f"  [{t}] {record.name:<32s} | {short}", flush=True)
+
+    h = _ProgressHandler()
+    h._live_progress_marker = True  # type: ignore[attr-defined]
+    h.setLevel(logging.INFO)
+    root.addHandler(h)
+
+
 def _load_dotenv_early() -> None:
     """Load .env at import time so other modules see XF_API_KEY.
 
@@ -93,6 +143,15 @@ def run_once(user_input: str, mode: str = "react", verbose: bool = True) -> dict
         return {"error": "missing XF_API_KEY", "final_answer": "(no credentials)"}
 
     setup_logging()
+
+    # Attach a live progress handler that mirrors every framework
+    # event (NODE_IN/OUT, TOOL_CALL/OK/ERR, LLM call, STEP start/end)
+    # to stdout with flush=True, so the user sees the system working
+    # in real time.  Without this, an 18-minute task looks frozen
+    # until the final answer appears.
+    if verbose:
+        _attach_live_progress_handler()
+
     t0 = time.time()
     if verbose:
         print(f"\n>>> 指令: {user_input}\n", flush=True)

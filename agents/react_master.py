@@ -360,7 +360,26 @@ class ReactMaster:
             SystemMessage(content=REACT_MASTER_PROMPT),
             human_msg,
         ]
-        text = self._llm.invoke(messages)
+        # Tenacity retry: 讯飞 one-api 偶发 "Engine Busy" (500) — 必须重试
+        # 多次,否则整个任务直接挂掉。最多 4 次,指数退避。
+        from tenacity import (
+            retry, stop_after_attempt, wait_exponential,
+            retry_if_exception_type, before_sleep_log,
+        )
+        import logging as _logging
+        _log = _logging.getLogger("agent.react.llm_retry")
+
+        @retry(
+            reraise=True,
+            stop=stop_after_attempt(4),
+            wait=wait_exponential(multiplier=2, min=2, max=20),
+            retry=retry_if_exception_type(Exception),
+            before_sleep=before_sleep_log(_log, _logging.WARNING),
+        )
+        def _invoke():
+            return self._llm.invoke(messages)
+
+        text = _invoke()
         text = getattr(text, "content", str(text))
         data = _parse_json(text)
         data = _coerce_nulls_to_defaults(data, ReactDecision)

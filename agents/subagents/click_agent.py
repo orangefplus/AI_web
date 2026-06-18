@@ -11,6 +11,8 @@ from langchain_core.runnables import Runnable
 from agents.prompts import CLICK_SPECIALIST_PROMPT
 from agents.subagents.base import Subagent, extract_latest_tool_result
 from tools import (
+    browser_check_checkbox,
+    browser_click_radio,
     browser_click_xy,
     browser_dispatch_key,
     browser_dismiss_overlay,
@@ -19,6 +21,8 @@ from tools import (
     browser_navigate_to_link,
     browser_press_key,
     browser_scroll,
+    browser_select_option,
+    browser_submit_form,
     browser_type_text,
     browser_upload_file,
 )
@@ -45,6 +49,15 @@ class ClickAgent(Subagent):
                 browser_dispatch_key,
                 browser_scroll,
                 browser_upload_file,
+                # Form controls (checkbox / radio / select / submit)
+                # — needed for arxiv advanced search and most enterprise
+                # portals.  These speak the DOM API directly, so they
+                # work even when the actual <input> is hidden under a
+                # styled <label>.
+                browser_check_checkbox,
+                browser_click_radio,
+                browser_select_option,
+                browser_submit_form,
                 # Modals / dialogs are intrinsically interaction-time events
                 browser_dismiss_overlay,
                 browser_handle_dialog,
